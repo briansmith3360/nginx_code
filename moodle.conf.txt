@@ -1,0 +1,56 @@
+# Redirect HTTP to HTTPS
+server {
+ listen 80; listen [::]:80;
+ server_name moodle.example.com;
+ #  return 301 https://$host$request_uri
+
+# server {
+ #  listen 443 ssl http2;
+ #  listen [::]:443 ssl http2;
+
+ # server_name moodle.example.com;
+ root /var/www/html/moodle;
+ index index.php;
+
+ #  ssl_certificate /etc/letsencrypt/live/moodle.example.com/fullchain.pem;
+ #  ssl_certificate_key /etc/letsencrypt/live/moodle.example.com/privkey.pem;
+ #  ssl_trusted_certificate /etc/letsencrypt/live/moodle.example.com/chain.pem;
+ #  ssl_session_timeout 1d;
+ #  ssl_session_cache shared:MozSSL:10m;
+ #  ssl_session_tickets off;
+ #  ssl_stapling on;
+ #  ssl_stapling_verify on;
+ #  ssl_dhparam /etc/ssl/certs/dhparam.pem;
+
+ #  ssl_protocols TLSv1.2 TLSv1.3;
+ #  ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+
+ access_log /var/log/nginx/moodle.access.log main;
+ error_log /var/log/nginx/moodle.error.log;
+
+ location / {
+ try_files $uri $uri/ /index.php?$query_string;
+ }
+
+ location ~ ^(.+\.php)(.*)$ {
+ fastcgi_split_path_info ^(.+\.php)(.*)$;
+ fastcgi_index index.php;
+ fastcgi_pass unix:/run/php/php8.0-fpm.sock;
+ include /etc/nginx/mime.types;
+ include fastcgi_params;
+ fastcgi_param PATH_INFO $fastcgi_path_info;
+ fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+ }
+
+ # Hide all dot files but allow "Well-Known URIs" as per RFC 5785
+ location ~ /\.(?!well-known).* {
+ return 404;
+ }
+
+ # This should be after the php fpm rule and very close to the last nginx ruleset.
+ # Don't allow direct access to various internal files. See MDL-69333
+ location ~ (/vendor/|/node_modules/|composer\.json|/readme|/README|readme\.txt|/upgrade\.txt|db/install\.xml|/fixtures/|/behat/|phpunit\.xml|\.lock|environment\.xml) {
+ deny all;
+ return 404;
+ }
+}
